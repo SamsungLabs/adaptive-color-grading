@@ -1,0 +1,18 @@
+# Adaptive Color Grading - runtime dependencies
+#
+#   pip install -r requirements.txt
+#
+# colour-science, numpy, scipy and scikit-learn are pinned to the versions the tool was
+# developed against. matplotlib and Pillow are given as floors instead: the development
+# environment installed them as local conda builds, whose version strings do not resolve
+# on PyPI. The floors below are the oldest releases providing the APIs this code uses.
+#
+# tkinter is not listed. It ships with the Python install itself and is not pip-installable.
+
+colour-science==0.4.6
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.6.1
+
+matplotlib>=3.5
+Pillow>=9.0
