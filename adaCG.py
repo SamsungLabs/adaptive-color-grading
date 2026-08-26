@@ -20,8 +20,8 @@ REGIONS = ['darkest','dark','light','lightest']
 # histogram bit depth options exposed in the dBadaCG settings menu
 BIT_DEPTHS = {8: 256, 10: 1024, 12: 4096, 14: 16384, 16: 65536}
 
-# default histogram bit depth. one place, so every record built by either app agrees.
-# adapt refuses to mix bin counts, so a record made here has to match the model.
+# default histogram bit depth. one place, so every grade built by either app agrees.
+# adapt refuses to mix bin counts, so a grade made here has to match the model.
 NBINS = BIT_DEPTHS[8]
 
 
@@ -101,7 +101,7 @@ def imResize(im, size, fit='height'):
     return np.divide(np.array(out, dtype=np.float32), np.float32(255))
 
 
-def newRecord(im, nBins=NBINS, histMode='std', thumbScale=0.05, labels=None):
+def newGrade(im, nBins=NBINS, histMode='std', thumbScale=0.05, labels=None):
     # build a single gradeDict entry for an image
     return {'set': defaultSet(),
             'reg': defaultReg(),
@@ -118,7 +118,7 @@ class adapt():
         # tList is the list of gradeDict keys to train on. gd is the gradeDict itself.
         tList = [k for k in tList if k in gd and isinstance(gd[k], dict) and 'hist' in gd[k]]
         if not len(tList):
-            raise ValueError('adapt: no trainable records in tList')
+            raise ValueError('adapt: no trainable grades in tList')
 
         self.tList = list(tList)
         self.nBins = nBins
@@ -128,7 +128,7 @@ class adapt():
         self.trts = np.zeros((len(tList),len(self.regions)))
         for i,tKey in enumerate(tList):
             h = np.asarray(gd[tKey]['hist'], dtype=np.float64).reshape(-1)
-            if h.size != nBins: # guard against records histogrammed at a different bit depth
+            if h.size != nBins: # guard against grades histogrammed at a different bit depth
                 raise ValueError('adapt: %s has a %d bin histogram, expected %d' % (tKey, h.size, nBins))
             self.hists[i,:] = h
             for j,reg in enumerate(self.regions):
@@ -141,7 +141,7 @@ class adapt():
         return self.model.predict(qHist)
 
     def queryDict(self, gd, key):
-        # predict the reg pivots for one gradeDict record and return them as a reg dict
+        # predict the reg pivots for one gradeDict grade and return them as a reg dict
         pred = self.query(gd[key]['hist'])[0]
         regOut = copy.deepcopy(gd[key]['reg'])
         for j,reg in enumerate(self.regions):
@@ -193,6 +193,74 @@ class colorEngine():
         lutOutC = c.LUT3D(lutOut, 'fullLut', self.lutDomain) # convert to LUT object
 
         return lutOutC, maps
+
+
+class flatButton(tk.Label):
+    # tk.Button ignores -background on macOS: the Aqua theme draws the button face natively,
+    # so the near white text of this dark UI ends up on a near white face and disappears.
+    # tk.Label honours both colours on every platform, so buttons here are labels that
+    # handle their own clicks.
+
+    BG, OVER, DOWN, FG = 'gray20', 'gray32', 'gray45', 'gray95'
+
+    def __init__(self, master, text='', command=None, bg=None, fg=None, **kw):
+        self.bgIdle = bg or self.BG
+        kw.setdefault('justify', tk.CENTER)
+        kw.setdefault('padx', 4)
+        kw.setdefault('pady', 3)
+        super().__init__(master, text=text, bg=self.bgIdle, fg=fg or self.FG, **kw)
+        self.command = command
+        self.bind('<Enter>', lambda e: self.configure(bg=self.OVER))
+        self.bind('<Leave>', lambda e: self.configure(bg=self.bgIdle))
+        self.bind('<Button-1>', lambda e: self.configure(bg=self.DOWN))
+        self.bind('<ButtonRelease-1>', self.onRelease)
+
+    def inside(self, event):
+        return 0 <= event.x < self.winfo_width() and 0 <= event.y < self.winfo_height()
+
+    def onRelease(self, event):
+        hit = self.inside(event)
+        self.configure(bg=self.OVER if hit else self.bgIdle)
+        if hit and self.command is not None:
+            self.command() # only fires when released over the button, as a real one does
+
+
+class flatToggle(tk.Frame):
+    # a row of mutually exclusive labels driving one StringVar. same reason as flatButton:
+    # tk.Radiobutton with indicatoron=False renders as a native button on macOS and ignores
+    # the colours set on it.
+
+    BG, OVER, ON, FG, FG_ON = 'gray20', 'gray32', 'gray48', 'gray75', 'gray99'
+
+    def __init__(self, master, variable, values, command=None, width=8, bg='gray9', **kw):
+        super().__init__(master, bg=bg, **kw)
+        self.var = variable
+        self.command = command
+        self.cells = {}
+        for v in values:
+            cell = tk.Label(self, text=v, width=width, bg=self.BG, fg=self.FG, padx=2, pady=2)
+            cell.pack(side=tk.LEFT, padx=1)
+            cell.bind('<Button-1>', lambda e, vv=v: self.select(vv))
+            cell.bind('<Enter>', lambda e, vv=v: self.hover(vv, True))
+            cell.bind('<Leave>', lambda e, vv=v: self.hover(vv, False))
+            self.cells[v] = cell
+        self.refresh()
+
+    def hover(self, v, on):
+        if self.var.get() != v: # the selected cell keeps its colour on hover
+            self.cells[v].configure(bg=self.OVER if on else self.BG)
+
+    def select(self, v):
+        self.var.set(v)
+        self.refresh()
+        if self.command is not None:
+            self.command(v)
+
+    def refresh(self):
+        cur = self.var.get()
+        for v, cell in self.cells.items():
+            on = (v == cur)
+            cell.configure(bg=self.ON if on else self.BG, fg=self.FG_ON if on else self.FG)
 
 
 class cgEditor(tk.Frame):
@@ -285,7 +353,7 @@ class cgEditor(tk.Frame):
             self.update_gradient(lutOut)
 
     def setGrade(self, setDict, regDict, refresh=True):
-        # load a set/reg pair out of a gradeDict record
+        # load a set/reg pair out of a grade
         self.setDict = copy.deepcopy(setDict)
         self.regDict = copy.deepcopy(regDict)
         self.draw_wheel_marker(0,0) # coordinates are recomputed from setDict inside
@@ -363,7 +431,7 @@ class cgEditor(tk.Frame):
         self.update_gradient(lutOut)
         self.notify()
 
-    # record regVal for shadows, highlights
+    # remember regVal for shadows, highlights
     def setReg(self,value):
         # select region from dropdown menu
         self.regVal = value
@@ -459,10 +527,10 @@ class adaCGapp(tk.Tk):
         for i in range(self.nIms):
             fullIm = c.read_image(os.path.join(imPath,self.imList[i])) # loads image as float32 in 0-1 range
             self.ims[i] = imResize(fullIm, self.width/rescale)
-            # fill in any image that has no record yet, so a directory that gained files
+            # fill in any image that has no grade yet, so a directory that gained files
             # after the pkl was written still grades. setdefault never clobbers an existing grade.
             if self.imList[i] not in self.gradeDict:
-                self.gradeDict[self.imList[i]] = newRecord(fullIm, self.nBins)
+                self.gradeDict[self.imList[i]] = newGrade(fullIm, self.nBins)
 
         # init color engine
         nodes = 17 # set number of nodes
@@ -475,19 +543,19 @@ class adaCGapp(tk.Tk):
         # image controls
         self.control_frame = tk.Frame(self, bg='gray9') # init app window & buttons
         self.control_frame.pack(side=tk.LEFT, fill=tk.Y)
-        self.fIm = tk.Button(self.control_frame, text="Next Image",command=self.forwardIm,bg='gray9',fg='gray99')
+        self.fIm = flatButton(self.control_frame, text="Next Image", command=self.forwardIm)
         self.fIm.pack(side=tk.RIGHT)
-        self.bIm = tk.Button(self.control_frame, text="Prev Image",command=self.backIm,bg='gray9',fg='gray99')
+        self.bIm = flatButton(self.control_frame, text="Prev Image", command=self.backIm)
         self.bIm.pack(side=tk.LEFT)
-        self.bIm = tk.Button(self.control_frame, text="Reset",command=self.reset,bg='gray9',fg='gray99')
+        self.bIm = flatButton(self.control_frame, text="Reset", command=self.reset)
         self.bIm.pack(pady=5)
-        self.sIm = tk.Button(self.control_frame, text="Save Image",command=self.saveIm,bg='gray9',fg='gray99')
+        self.sIm = flatButton(self.control_frame, text="Save Image", command=self.saveIm)
         self.sIm.pack(pady=5)
-        self.saveLut = tk.Button(self.control_frame, text="Save Lut",command=self.saveLUT,bg='gray9',fg='gray99')
+        self.saveLut = flatButton(self.control_frame, text="Save Lut", command=self.saveLUT)
         self.saveLut.pack(pady=5)
-        self.sGrade = tk.Button(self.control_frame, text="Save Grade",command=self.saveGrade,bg='gray9',fg='gray99')
+        self.sGrade = flatButton(self.control_frame, text="Save Grade", command=self.saveGrade)
         self.sGrade.pack(pady=5)
-        self.lGrade = tk.Button(self.control_frame, text="Load Grade",command=self.loadGrade,bg='gray9',fg='gray99')
+        self.lGrade = flatButton(self.control_frame, text="Load Grade", command=self.loadGrade)
         self.lGrade.pack(pady=5)
 
         self.title("rawGrader: "+self.imList[self.imSelect])
@@ -538,8 +606,8 @@ class adaCGapp(tk.Tk):
 
     def loadGrade(self):
         # if the file has been graded before, load previous grade
-        rec = self.gradeDict[self.imList[self.imSelect]]
-        self.editor.setGrade(rec['set'], rec['reg'])
+        grade = self.gradeDict[self.imList[self.imSelect]]
+        self.editor.setGrade(grade['set'], grade['reg'])
 
 if __name__ == "__main__":
 

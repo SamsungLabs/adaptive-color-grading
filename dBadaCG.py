@@ -31,7 +31,8 @@ from PIL import Image, ImageDraw, ImageTk
 
 # dBadaCG inherits its grading interface objects from adaCG
 from adaCG import (REGIONS, BIT_DEPTHS, NBINS, adapt, colorEngine, cgEditor,
-                   defaultSet, defaultReg, imHist, thumbDecode, imResize, newRecord)
+                   flatButton, flatToggle, defaultSet, defaultReg, imHist,
+                   thumbDecode, imResize, newGrade)
 
 IMTYPES = ('.tif', '.tiff', '.jpg', '.jpeg', '.png', '.exr', '.dpx')
 HIST_MODES = ['none', 'unit', 'std', 'log', 'cdf']
@@ -39,20 +40,20 @@ HIST_MODES = ['none', 'unit', 'std', 'log', 'cdf']
 # region threshold marker colors, darkest to lightest
 REG_COLORS = {'darkest': '#9b59b6', 'dark': '#5dade2', 'light': '#2ecc71', 'lightest': '#e74c3c'}
 
-# top level gradeDict keys that are not image records. 'set' and 'reg' show up at the top
+# top level gradeDict keys that are not image grades. 'set' and 'reg' show up at the top
 # level of pkls written by earlier adaCG builds, which stashed the live editor state there.
 RESERVED = ('root', 'set', 'reg')
 
 
-def gradeSig(rec):
+def gradeSig(grade):
     # cheap identity for a grade, used to key the rendered thumb / gscale caches
-    return '%r|%r' % (rec.get('set'), rec.get('reg'))
+    return '%r|%r' % (grade.get('set'), grade.get('reg'))
 
 
 def sameImage(a, b):
-    # decide whether two records under the same key describe the same image, so a harmless
+    # decide whether two grades under the same key describe the same image, so a harmless
     # re-add can be told from a real filename collision. compares stored data only, no field
-    # is added to the record and no source image is read.
+    # is added to the grade and no source image is read.
     for f in ('thumb', 'hist'):
         x, y = a.get(f), b.get(f)
         if x is None or y is None:
@@ -80,9 +81,9 @@ def fmtTime(t):
     return t.strftime('%Y-%m-%d %H:%M') if isinstance(t, datetime) else ''
 
 
-def recTime(rec):
+def gradeTime(grade):
     # sort key. older pkls stored the datetime.now function itself rather than calling it
-    t = rec.get('time')
+    t = grade.get('time')
     return t if isinstance(t, datetime) else datetime.min
 
 
@@ -92,7 +93,7 @@ def shortPath(p, n):
 
 
 class mergeResult():
-    # outcome of any operation that folds records into a db, so conflicts can be reported
+    # outcome of any operation that folds grades into a db, so conflicts can be reported
     # rather than silently dropped
 
     def __init__(self):
@@ -153,17 +154,17 @@ class gradeDB():
         return path
 
     def normalize(self):
-        # bring an older pkl up to the current record layout without adding anything to it
+        # bring an older pkl up to the current grade layout without adding anything to it
         for k in ('set', 'reg'):
-            self.gd.pop(k, None) # leftover top level editor state, not a record
+            self.gd.pop(k, None) # leftover top level editor state, not a grade
         for k in self.keys():
-            rec = self.gd[k]
-            rec.setdefault('set', defaultSet())
-            rec.setdefault('reg', defaultReg())
-            rec.setdefault('hist', None)
-            rec.setdefault('thumb', None)
-            rec.setdefault('labels', [])
-            rec.setdefault('time', datetime.now())
+            grade = self.gd[k]
+            grade.setdefault('set', defaultSet())
+            grade.setdefault('reg', defaultReg())
+            grade.setdefault('hist', None)
+            grade.setdefault('thumb', None)
+            grade.setdefault('labels', [])
+            grade.setdefault('time', datetime.now())
 
     # ---- access ----
 
@@ -179,7 +180,7 @@ class gradeDB():
         return sorted([k for k in self.gd.keys()
                        if k not in RESERVED and isinstance(self.gd[k], dict)])
 
-    def rec(self, key):
+    def grade(self, key):
         return self.gd[key]
 
     def name(self, key):
@@ -193,14 +194,14 @@ class gradeDB():
     def has(self, key):
         return key in self.gd and key not in RESERVED and isinstance(self.gd[key], dict)
 
-    def add(self, key, rec):
-        self.gd[key] = rec
+    def add(self, key, grade):
+        self.gd[key] = grade
 
     def remove(self, key):
         if self.has(key):
             del self.gd[key]
 
-    def nRecords(self):
+    def nGrades(self):
         return len(self.keys())
 
     def histBins(self):
@@ -220,13 +221,13 @@ class gradeDB():
 
     # ---- ingest ----
 
-    def offer(self, key, rec, res):
-        # single place where a candidate record meets an existing one, so every ingest path
+    def offer(self, key, grade, res):
+        # single place where a candidate grade meets an existing one, so every ingest path
         # reports conflicts the same way
         if self.has(key):
-            (res.dupes if sameImage(self.gd[key], rec) else res.conflicts).append(key)
+            (res.dupes if sameImage(self.gd[key], grade) else res.conflicts).append(key)
             return False
-        self.add(key, rec)
+        self.add(key, grade)
         res.added.append(key)
         return True
 
@@ -249,33 +250,33 @@ class gradeDB():
                 print('dBadaCG: could not read %s (%s)' % (nm, e))
                 res.unreadable.append(key)
                 continue
-            if self.offer(key, newRecord(fullIm, nBins, histMode, thumbScale), res) \
+            if self.offer(key, newGrade(fullIm, nBins, histMode, thumbScale), res) \
                and onImage is not None:
                 onImage(key, fullIm)
         return res
 
     def mergeFrom(self, path):
-        # "add from file": fold records out of another gradeDict pkl into this db
+        # "add from file": fold grades out of another gradeDict pkl into this db
         with open(path, "rb") as file:
             other = pickle.load(file)
         res = mergeResult()
         for k in sorted(other.keys()):
             if k in RESERVED or not isinstance(other[k], dict):
                 continue
-            rec = copy.deepcopy(other[k])
-            # same fill in as normalize(), so a record merged out of an older pkl still has
+            grade = copy.deepcopy(other[k])
+            # same fill in as normalize(), so a grade merged out of an older pkl still has
             # a grade to render a ramp and thresholds from
-            rec.setdefault('set', defaultSet())
-            rec.setdefault('reg', defaultReg())
-            rec.setdefault('labels', [])
-            rec.setdefault('time', datetime.now())
-            self.offer(k, rec, res)
+            grade.setdefault('set', defaultSet())
+            grade.setdefault('reg', defaultReg())
+            grade.setdefault('labels', [])
+            grade.setdefault('time', datetime.now())
+            self.offer(k, grade, res)
         return res
 
-    def copyRecordsFrom(self, srcDb, keys):
+    def copyGradesFrom(self, srcDb, keys):
         res = mergeResult()
         for k in keys:
-            self.offer(k, copy.deepcopy(srcDb.rec(k)), res)
+            self.offer(k, copy.deepcopy(srcDb.grade(k)), res)
         return res
 
     def rehistogram(self, nBins, histMode, progress=None):
@@ -305,9 +306,9 @@ class gradeDB():
         wants = [s.strip().lower() for s in labels.split(',') if s.strip()]
         out = []
         for k in self.keys():
-            rec = self.gd[k]
+            grade = self.gd[k]
             if wants:
-                have = [str(l).lower() for l in rec.get('labels', [])]
+                have = [str(l).lower() for l in grade.get('labels', [])]
                 if not any(w in h for w in wants for h in have):
                     continue
             if root and root.lower() not in str(self.root).lower() \
@@ -335,8 +336,7 @@ class filterBar(tk.Frame):
             tk.Entry(self, textvariable=v, width=12, bg='gray25', fg='gray99',
                      insertbackground='gray99', relief=tk.FLAT).pack(side=tk.LEFT)
             self.vars[f] = v
-        tk.Button(self, text='clear', command=self.clear, bg='gray20', fg='gray90',
-                  relief=tk.FLAT).pack(side=tk.LEFT, padx=4)
+        flatButton(self, text='clear', command=self.clear).pack(side=tk.LEFT, padx=4)
 
     def fire(self):
         if self.onChange is not None:
@@ -352,11 +352,11 @@ class filterBar(tk.Frame):
 
 
 # ---------------------------------------------------------------------------
-# record view
+# grade view
 # ---------------------------------------------------------------------------
 
-class recordView(tk.Frame):
-    # canvas backed list of gradeDict records, as a details list or a gallery of tiles.
+class gradeView(tk.Frame):
+    # canvas backed list of gradeDict grades, as a details list or a gallery of tiles.
     # only the rows actually inside the viewport are drawn, so redraw cost is set by the
     # size of the window rather than the size of the database.
 
@@ -395,7 +395,7 @@ class recordView(tk.Frame):
 
     def setKeys(self, keys):
         self.keys = list(keys)
-        self.selection &= set(self.keys) # a filtered out record cannot stay selected
+        self.selection &= set(self.keys) # a filtered out grade cannot stay selected
         self.redraw()
 
     def setMode(self, mode):
@@ -499,13 +499,13 @@ class recordView(tk.Frame):
 
     def drawList(self):
         w = max(self.canvas.winfo_width(), 320)
-        # scrollregion covers every record, only the visible slice is actually drawn
+        # scrollregion covers every grade, only the visible slice is actually drawn
         self.canvas.configure(scrollregion=(0, 0, w, max(len(self.keys) * self.ROWH, 1)))
         i0, i1 = self.visibleRange(self.ROWH, 1)
         for i in range(i0, i1):
             key = self.keys[i]
             y = i * self.ROWH
-            rec = self.db.rec(key)
+            grade = self.db.grade(key)
             if key in self.selection:
                 self.canvas.create_rectangle(0, y, w, y + self.ROWH, fill='gray30', outline='')
             self.canvas.create_line(0, y + self.ROWH, w, y + self.ROWH, fill='gray20')
@@ -524,13 +524,13 @@ class recordView(tk.Frame):
                 self.canvas.create_image(x, y + self.ROWH / 2, anchor=tk.W, image=tkim)
             x += self.GSW + 10
             self.canvas.create_text(x, y + self.ROWH / 2, anchor=tk.W,
-                                    text=', '.join(str(l) for l in rec.get('labels', [])),
+                                    text=', '.join(str(l) for l in grade.get('labels', [])),
                                     fill='gray75', font=('TkDefaultFont', 8))
             x += 120
-            self.canvas.create_text(x, y + self.ROWH / 2, anchor=tk.W, text=fmtTime(rec.get('time')),
+            self.canvas.create_text(x, y + self.ROWH / 2, anchor=tk.W, text=fmtTime(grade.get('time')),
                                     fill='gray60', font=('TkDefaultFont', 8))
-            if rec.get('hist') is None:
-                # without a histogram a record can neither train nor be predicted on
+            if grade.get('hist') is None:
+                # without a histogram a grade can neither train nor be predicted on
                 self.canvas.create_text(w - 8, y + self.ROWH / 2, anchor=tk.E, text='no hist',
                                         fill='#c0504d', font=('TkDefaultFont', 7))
 
@@ -541,7 +541,7 @@ class recordView(tk.Frame):
         i0, i1 = self.visibleRange(self.TILEH, nc)
         for i in range(i0, i1):
             key = self.keys[i]
-            rec = self.db.rec(key)
+            grade = self.db.grade(key)
             cx = (i % nc) * self.TILEW
             cy = (i // nc) * self.TILEH
             if key in self.selection:
@@ -561,10 +561,10 @@ class recordView(tk.Frame):
                                     fill='gray95', font=('TkDefaultFont', 8))
             yy += 14
             self.canvas.create_text(cx + self.TILEW / 2, yy,
-                                    text=', '.join(str(l) for l in rec.get('labels', []))[:24],
+                                    text=', '.join(str(l) for l in grade.get('labels', []))[:24],
                                     fill='gray75', font=('TkDefaultFont', 7))
             yy += 12
-            self.canvas.create_text(cx + self.TILEW / 2, yy, text=fmtTime(rec.get('time')),
+            self.canvas.create_text(cx + self.TILEW / 2, yy, text=fmtTime(grade.get('time')),
                                     fill='gray60', font=('TkDefaultFont', 7))
 
 
@@ -586,10 +586,8 @@ class dbPane(tk.Frame):
         tk.Label(head, textvariable=self.titleVar, bg='gray15', fg='gray99',
                  font=('TkDefaultFont', 10, 'bold')).pack(side=tk.LEFT, padx=6, pady=2)
         self.modeVar = tk.StringVar(self, 'list')
-        for m in ('gallery', 'list'):
-            tk.Radiobutton(head, text=m, variable=self.modeVar, value=m, command=self.setMode,
-                           bg='gray15', fg='gray80', selectcolor='gray30', indicatoron=False,
-                           relief=tk.FLAT, width=6).pack(side=tk.RIGHT, padx=1)
+        flatToggle(head, self.modeVar, ('list', 'gallery'), width=6, bg='gray15',
+                   command=lambda v: self.setMode()).pack(side=tk.RIGHT, padx=2)
         self.sortVar = tk.StringVar(self, 'name')
         srt = tk.OptionMenu(head, self.sortVar, 'name', 'date', command=lambda v: self.refresh())
         srt.configure(bg='gray20', fg='gray90', highlightthickness=0, relief=tk.FLAT)
@@ -605,12 +603,12 @@ class dbPane(tk.Frame):
         btnCol = tk.Frame(body, bg='gray9')
         btnCol.pack(side=(tk.LEFT if side == 'left' else tk.RIGHT), fill=tk.Y, padx=2)
         for label, cmd in buttons:
-            tk.Button(btnCol, text=label, command=cmd, bg='gray20', fg='gray95', relief=tk.FLAT,
-                      wraplength=88, justify=tk.CENTER, width=12).pack(pady=2, fill=tk.X)
+            flatButton(btnCol, text=label, command=cmd,
+                       wraplength=88, width=12).pack(pady=2, fill=tk.X)
 
-        self.view = recordView(body, db,
+        self.view = gradeView(body, db,
                                onSelect=app.onSelect,
-                               onActivate=(app.loadRecord if feedsEditor else None),
+                               onActivate=(app.loadGrade if feedsEditor else None),
                                thumbFn=app.gradedThumb, gscaleFn=app.gscaleStrip)
         self.view.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
@@ -626,15 +624,15 @@ class dbPane(tk.Frame):
 
     def sortKeys(self, keys):
         if self.sortVar.get() == 'date':
-            return sorted(keys, key=lambda k: recTime(self.db.rec(k)))
+            return sorted(keys, key=lambda k: gradeTime(self.db.grade(k)))
         return sorted(keys, key=lambda k: k.lower())
 
     def refresh(self):
         keys = self.sortKeys(self.db.filterKeys(**self.filters.spec()))
         self.view.setKeys(keys)
         self.titleVar.set('%s  [%s]' % (self.title, shortPath(self.db.root, 40)))
-        self.setStatus('%d of %d records   |   %s' %
-                       (len(keys), self.db.nRecords(), shortPath(self.db.path or '(unsaved)', 60)))
+        self.setStatus('%d of %d grades   |   %s' %
+                       (len(keys), self.db.nGrades(), shortPath(self.db.path or '(unsaved)', 60)))
 
     def selectedKeys(self):
         return self.view.selectedKeys()
@@ -677,7 +675,7 @@ class dBadaCGapp(tk.Tk):
         self.previews = {}            # project key -> downscaled float32 preview
         self.previewW = None          # width the held previews were built at
         self.thumbCache = {}          # (key, box, gradeSig) -> PIL
-        self.gsCache = {}             # (gradeSig, w, h) -> PIL, shared across records
+        self.gsCache = {}             # (gradeSig, w, h) -> PIL, shared across grades
         self.undoStack = []
         self.redoStack = []
         self.dirty = False
@@ -751,7 +749,7 @@ class dBadaCGapp(tk.Tk):
         for m in HIST_MODES:
             handM.add_radiobutton(label=m, value=m, variable=self.histMode)
         setM.add_cascade(label='histogram handling', menu=handM)
-        # no train equivalent: train records have no resolvable source image. change the bit
+        # no train equivalent: train grades have no resolvable source image. change the bit
         # depth, rehistogram the project, then re-add to train.
         setM.add_command(label='Rehistogram Project', command=self.rehistogramProject)
         setM.add_separator()
@@ -810,8 +808,8 @@ class dBadaCGapp(tk.Tk):
                            ('next im', self.nextIm),
                            ('save im', self.saveIm),
                            ('save lut', self.saveLUT)):
-            tk.Button(btnCol, text=label, command=cmd, bg='gray20', fg='gray95', relief=tk.FLAT,
-                      wraplength=88, justify=tk.CENTER, width=12).pack(pady=3, fill=tk.X)
+            flatButton(btnCol, text=label, command=cmd,
+                       wraplength=88, width=12).pack(pady=3, fill=tk.X)
 
         # the visualization pane claims its slice before the editor
         self.vizPane = tk.Frame(edRow, bg='gray9', width=420)
@@ -829,10 +827,8 @@ class dBadaCGapp(tk.Tk):
         tk.Label(sw, text='color offset applies to:', bg='gray9', fg='gray70').pack()
         row = tk.Frame(sw, bg='gray9')
         row.pack()
-        for val in ('individual', 'batch'):
-            tk.Radiobutton(row, text=val, variable=self.batchMode, value=val, bg='gray9',
-                           fg='gray90', selectcolor='gray30', indicatoron=False,
-                           relief=tk.FLAT, width=9).pack(side=tk.LEFT, padx=1)
+        flatToggle(row, self.batchMode, ('individual', 'batch'),
+                   width=9, bg='gray9').pack()
 
         self.buildViz()
 
@@ -851,8 +847,8 @@ class dBadaCGapp(tk.Tk):
     def drawViz(self):
         self.axHist.clear()
         self.axHist.set_facecolor('#171717')
-        rec = self.curRecord()
-        h = None if rec is None else rec.get('hist')
+        grade = self.curGrade()
+        h = None if grade is None else grade.get('hist')
         if h is not None:
             h = np.asarray(h).reshape(-1)
             self.axHist.fill_between(np.linspace(0, 1, h.size), 0, h, color='#9a9a9a', linewidth=0)
@@ -892,34 +888,34 @@ class dBadaCGapp(tk.Tk):
         self.axLut.tick_params(colors='#808080', labelsize=5)
         self.vizCanvas.draw_idle()
 
-    # ---- rendering records ---------------------------------------------
+    # ---- rendering grades ---------------------------------------------
 
-    def lutFor(self, rec):
-        # when a record carries the grade the editor is currently showing, the editor has
+    def lutFor(self, grade):
+        # when a grade carries the grade the editor is currently showing, the editor has
         # already built that LUT. this is exactly the batch edit case, where every touched
-        # record shares one grade. colorEngine is untouched either way.
+        # grade shares one grade. colorEngine is untouched either way.
         if self.editor is not None and self.editor.lastLut is not None \
-           and gradeSig(rec) == gradeSig(self.editor.gradeDict()):
+           and gradeSig(grade) == gradeSig(self.editor.gradeDict()):
             return self.editor.lastLut
-        lutOut, _ = self.ce.apply(rec)
+        lutOut, _ = self.ce.apply(grade)
         return lutOut
 
     def gradedThumb(self, db, key, box):
         # the stored thumb, downsampled to its display size and then put through the
-        # record's own grade
-        rec = db.rec(key)
-        ck = (id(db), key, box, gradeSig(rec))
+        # grade's own grade
+        grade = db.grade(key)
+        ck = (id(db), key, box, gradeSig(grade))
         hit = self.thumbCache.get(ck)
         if hit is not None:
             return hit
-        pil = thumbDecode(rec.get('thumb'))
+        pil = thumbDecode(grade.get('thumb'))
         if pil is None:
             return None
         pil = pil.convert('RGB')
         pil.thumbnail((box, box)) # downsample before the LUT, not after
         try:
             arr = np.asarray(pil, dtype=np.float32) / np.float32(255)
-            out = np.clip(self.lutFor(rec).apply(arr), 0, 1)
+            out = np.clip(self.lutFor(grade).apply(arr), 0, 1)
             pil = Image.fromarray(np.multiply(out, 255).astype(np.uint8))
         except Exception as e:
             print('dBadaCG: thumb grade failed on %s (%s)' % (key, e))
@@ -929,25 +925,25 @@ class dBadaCGapp(tk.Tk):
         return pil
 
     def gscaleStrip(self, db, key, w, h):
-        # the black to white ramp under this record's grade, so the list doubles as a visual
-        # index of what each grade does, marked with that record's four region thresholds.
-        # keyed by the grade alone, so records sharing a grade share one strip, and any pivot
+        # the black to white ramp under this grade's grade, so the list doubles as a visual
+        # index of what each grade does, marked with that grade's four region thresholds.
+        # keyed by the grade alone, so grades sharing a grade share one strip, and any pivot
         # change (a manual drag or an applied model) is a new key and so redraws by itself.
-        rec = db.rec(key)
-        ck = (gradeSig(rec), w, h)
+        grade = db.grade(key)
+        ck = (gradeSig(grade), w, h)
         hit = self.gsCache.get(ck)
         if hit is not None:
             return hit
         try:
             n = min(self.GS_SAMPLES, max(2, w)) # ramp built small, then resized up
             grad = np.repeat(np.reshape(np.linspace(0, 1, n, dtype=np.float32), (1, n, 1)), 3, axis=2)
-            out = np.clip(self.lutFor(rec).apply(grad), 0, 1)
+            out = np.clip(self.lutFor(grade).apply(grad), 0, 1)
             pil = Image.fromarray(np.multiply(out, 255).astype(np.uint8)).resize((w, h))
             # region threshold markers, drawn after the resize so they stay one pixel wide.
             # same colors as the visualization pane, darkest to lightest.
             drawer = ImageDraw.Draw(pil)
             for reg in REGIONS:
-                piv = float(rec['reg'][reg][0])
+                piv = float(grade['reg'][reg][0])
                 x = max(0, min(w - 1, int(round(piv * (w - 1))))) # a pivot can land outside 0-1
                 drawer.line([(x, 0), (x, h - 1)], fill=REG_COLORS[reg], width=1)
         except Exception as e:
@@ -960,24 +956,24 @@ class dBadaCGapp(tk.Tk):
 
     # ---- editor plumbing ------------------------------------------------
 
-    def curRecord(self):
+    def curGrade(self):
         if self.curKey is None or not self.projDb.has(self.curKey):
             return None
-        return self.projDb.rec(self.curKey)
+        return self.projDb.grade(self.curKey)
 
     def previewWidth(self):
         return int(self.width / max(1, self.previewDiv.get()))
 
-    def loadRecord(self, db, key):
-        # only project records reach the editor. the train window is a curation list and
+    def loadGrade(self, db, key):
+        # only project grades reach the editor. the train window is a curation list and
         # never touches source images.
         if db is not self.projDb or not db.has(key):
             return
         self.curKey = key
-        rec = db.rec(key)
+        grade = db.grade(key)
         self.suppressEdits = True # setGrade / setImage must not read back as a user edit
         try:
-            self.editor.setGrade(rec['set'], rec['reg'], refresh=False)
+            self.editor.setGrade(grade['set'], grade['reg'], refresh=False)
             im = self.previews.get(key)
             if im is None:
                 self.status('no preview loaded for %s' % key)
@@ -990,7 +986,7 @@ class dBadaCGapp(tk.Tk):
     def onSelect(self, db, keys):
         if db is self.projDb:
             if keys:
-                self.loadRecord(db, keys[0])
+                self.loadGrade(db, keys[0])
             self.status('%d selected in project' % len(keys))
         else:
             # train selection deliberately does not drive the editor
@@ -1007,24 +1003,24 @@ class dBadaCGapp(tk.Tk):
         for k in targets:
             if not self.projDb.has(k):
                 continue
-            self.projDb.rec(k)['set'] = copy.deepcopy(setDict)
-            self.projDb.rec(k)['reg'] = copy.deepcopy(regDict)
-            self.projDb.rec(k)['time'] = datetime.now()
+            self.projDb.grade(k)['set'] = copy.deepcopy(setDict)
+            self.projDb.grade(k)['reg'] = copy.deepcopy(regDict)
+            self.projDb.grade(k)['time'] = datetime.now()
         self.markDirty()
         # the chroma box fires this on every motion event, so the list redraw and the
         # matplotlib replot are coalesced instead of run per pixel of drag
         self.scheduleRefresh()
         if len(targets) > 1:
-            self.status('batch edit applied to %d records (unsaved)' % len(targets))
+            self.status('batch edit applied to %d grades (unsaved)' % len(targets))
 
     def resetGrade(self):
         # adaCGapp's reset: a*b* colour offsets back to zero for every region. the tonescale
         # pivots and falloffs are left alone, which is what adaCG has always done.
         if self.curKey is None:
-            return self.status('no project record loaded')
+            return self.status('no project grade loaded')
         n = len(self.projPane.selectedKeys()) if self.batchMode.get() == 'batch' else 1
         self.editor.reset() # fires onGradeChange, so batch mode applies as it does for a drag
-        self.status('reset color offsets on %d record(s) (unsaved)' % max(1, n))
+        self.status('reset color offsets on %d grade(s) (unsaved)' % max(1, n))
 
     def scheduleRefresh(self, delay=200):
         if self.refreshJob is not None:
@@ -1061,8 +1057,8 @@ class dBadaCGapp(tk.Tk):
     # ---- undo / redo ----------------------------------------------------
 
     def snapshot(self, keys):
-        return [(k, copy.deepcopy(self.projDb.rec(k)['set']),
-                 copy.deepcopy(self.projDb.rec(k)['reg']))
+        return [(k, copy.deepcopy(self.projDb.grade(k)['set']),
+                 copy.deepcopy(self.projDb.grade(k)['reg']))
                 for k in keys if self.projDb.has(k)]
 
     def pushUndo(self, keys):
@@ -1075,13 +1071,13 @@ class dBadaCGapp(tk.Tk):
         back = self.snapshot([k for k, _, _ in items])
         for k, s, r in items:
             if self.projDb.has(k):
-                self.projDb.rec(k)['set'] = s
-                self.projDb.rec(k)['reg'] = r
+                self.projDb.grade(k)['set'] = s
+                self.projDb.grade(k)['reg'] = r
         if self.curKey is not None and self.projDb.has(self.curKey):
-            rec = self.projDb.rec(self.curKey)
+            grade = self.projDb.grade(self.curKey)
             self.suppressEdits = True
             try:
-                self.editor.setGrade(rec['set'], rec['reg'])
+                self.editor.setGrade(grade['set'], grade['reg'])
             finally:
                 self.suppressEdits = False
         self.markDirty()
@@ -1104,7 +1100,7 @@ class dBadaCGapp(tk.Tk):
     # ---- conflict reporting ---------------------------------------------
 
     def reportMerge(self, res, what):
-        # a filename collision means two different images want the same key. the record is
+        # a filename collision means two different images want the same key. the grade is
         # left alone and the user is told, rather than one silently replacing the other.
         self.status('%s: %s' % (what, res.summary()))
         if res.conflicts:
@@ -1112,7 +1108,7 @@ class dBadaCGapp(tk.Tk):
             more = '' if len(res.conflicts) <= 12 else '\n  ... and %d more' % (len(res.conflicts) - 12)
             messagebox.showwarning(
                 'filename conflict',
-                '%d incoming record(s) use a name that already exists in the %s database, '
+                '%d incoming grade(s) use a name that already exists in the %s database, '
                 'but describe a different image. they were skipped and nothing was '
                 'overwritten.\n\n%s%s\n\nrename the files, or keep them in separate '
                 'projects.' % (len(res.conflicts), what, shown, more))
@@ -1154,10 +1150,10 @@ class dBadaCGapp(tk.Tk):
                        '  (%d source images not found)' % missing if missing else ''))
 
     def reloadPreviews(self):
-        if self.projDb.nRecords():
+        if self.projDb.nGrades():
             self.loadPreviews()
             if self.curKey is not None:
-                self.loadRecord(self.projDb, self.curKey)
+                self.loadGrade(self.projDb, self.curKey)
 
     def scanTypes(self):
         return (self.ftype,) if self.ftype else IMTYPES
@@ -1165,8 +1161,8 @@ class dBadaCGapp(tk.Tk):
     # ---- project commands ----------------------------------------------
 
     def loadProjectDir(self, d, pkl=None):
-        # sets the project root from a directory and scans it. records come from pkl, which
-        # defaults to grade.pkl in that directory. anything in the directory without a record
+        # sets the project root from a directory and scans it. grades come from pkl, which
+        # defaults to grade.pkl in that directory. anything in the directory without a grade
         # gets one. nothing is written back until Save Project.
         d = os.path.normpath(d)
         pkl = os.path.normpath(pkl) if pkl else os.path.join(d, 'grade.pkl')
@@ -1195,7 +1191,7 @@ class dBadaCGapp(tk.Tk):
         d = filedialog.askdirectory(title='import images into project')
         if not d:
             return
-        if not self.projDb.nRecords() and not self.projDb.root:
+        if not self.projDb.nGrades() and not self.projDb.root:
             self.projDb.root = os.path.normpath(d) # the first import defines the root
         res = self.projDb.ingestDirectory(d, self.scanTypes(), self.nBins.get(),
                                           self.histMode.get(), self.thumbScale,
@@ -1223,7 +1219,7 @@ class dBadaCGapp(tk.Tk):
         if not keys:
             return self.status('nothing selected in project')
         if not messagebox.askyesno('remove from project',
-                                   'remove %d record(s) from the project gradeDict?\n\n'
+                                   'remove %d grade(s) from the project gradeDict?\n\n'
                                    'image files on disk are not touched, and the project '
                                    'file is not changed until Save Project.' % len(keys)):
             return
@@ -1234,22 +1230,22 @@ class dBadaCGapp(tk.Tk):
                 self.curKey = None
         self.markDirty()
         self.refreshPanes()
-        self.status('removed %d records from project (unsaved)' % len(keys))
+        self.status('removed %d grades from project (unsaved)' % len(keys))
 
     def labelSelected(self, pane):
         keys = pane.selectedKeys()
         if not keys:
             return self.status('nothing selected')
-        s = simpledialog.askstring('label', 'comma separated labels for %d record(s):' % len(keys),
+        s = simpledialog.askstring('label', 'comma separated labels for %d grade(s):' % len(keys),
                                    parent=self)
         if s is None:
             return
         labs = [t.strip() for t in s.split(',') if t.strip()]
         for k in keys:
-            pane.db.rec(k)['labels'] = list(labs)
+            pane.db.grade(k)['labels'] = list(labs)
         self.markDirty()
         pane.refresh() # labels change no grade, so no thumb or gscale is invalidated
-        self.status('labelled %d records (unsaved)' % len(keys))
+        self.status('labelled %d grades (unsaved)' % len(keys))
 
     # ---- train commands -------------------------------------------------
 
@@ -1257,7 +1253,7 @@ class dBadaCGapp(tk.Tk):
         keys = self.projPane.selectedKeys()
         if not keys:
             return self.status('nothing selected in project')
-        res = self.trainDb.copyRecordsFrom(self.projDb, keys)
+        res = self.trainDb.copyGradesFrom(self.projDb, keys)
         if not self.trainDb.root:
             self.trainDb.root = self.projDb.root
         self.trainPane.refresh()
@@ -1279,7 +1275,7 @@ class dBadaCGapp(tk.Tk):
         for k in keys:
             self.trainDb.remove(k)
         self.trainPane.refresh()
-        self.status('removed %d records from train' % len(keys))
+        self.status('removed %d grades from train' % len(keys))
 
     # ---- model ----------------------------------------------------------
 
@@ -1287,11 +1283,11 @@ class dBadaCGapp(tk.Tk):
         # refit from the curated train set. cheap enough that there is no reason to hold or
         # persist a fitted estimator.
         keys = [k for k in (self.trainPane.view.keys or self.trainDb.keys())
-                if self.trainDb.rec(k).get('hist') is not None]
+                if self.trainDb.grade(k).get('hist') is not None]
         if not keys:
-            messagebox.showerror('model', 'no train records with a histogram.')
+            messagebox.showerror('model', 'no train grades with a histogram.')
             return None
-        bins = int(np.asarray(self.trainDb.rec(keys[0])['hist']).size)
+        bins = int(np.asarray(self.trainDb.grade(keys[0])['hist']).size)
         try:
             return adapt(self.trainDb.gd, keys, nBins=bins, nNeighbors=self.nNeighbors.get())
         except Exception as e:
@@ -1301,55 +1297,55 @@ class dBadaCGapp(tk.Tk):
     def applyModel(self):
         keys = self.projPane.selectedKeys()
         if not keys:
-            return self.status('select the project records to apply the model to')
-        keys = [k for k in keys if self.projDb.rec(k).get('hist') is not None]
+            return self.status('select the project grades to apply the model to')
+        keys = [k for k in keys if self.projDb.grade(k).get('hist') is not None]
         if not keys:
-            return self.status('none of the selected project records have a histogram')
+            return self.status('none of the selected project grades have a histogram')
         model = self.buildModel()
         if model is None:
             return
-        bad = [k for k in keys if np.asarray(self.projDb.rec(k)['hist']).size != model.nBins]
+        bad = [k for k in keys if np.asarray(self.projDb.grade(k)['hist']).size != model.nBins]
         if bad:
             messagebox.showerror('apply model',
-                                 '%d selected record(s) have a histogram bin count that does '
+                                 '%d selected grade(s) have a histogram bin count that does '
                                  'not match the model (%d bins).\n\nrun Settings > '
                                  'Rehistogram Project first.' % (len(bad), model.nBins))
             return
         if not messagebox.askyesno(
                 'apply model',
-                'set predicted region pivots on %d selected project record(s)?\n\n'
+                'set predicted region pivots on %d selected project grade(s)?\n\n'
                 'only the four pivots change. a*b* offsets and falloffs are left as they are.\n\n'
                 'the change stays in this session only. the project file is not updated '
                 'unless you choose Save Project.' % len(keys)):
             return
         self.pushUndo(keys)
-        H = np.vstack([np.asarray(self.projDb.rec(k)['hist']).reshape(1, -1) for k in keys])
+        H = np.vstack([np.asarray(self.projDb.grade(k)['hist']).reshape(1, -1) for k in keys])
         pred = model.query(H)
         for i, k in enumerate(keys):
-            reg = self.projDb.rec(k)['reg']
+            reg = self.projDb.grade(k)['reg']
             for j, r in enumerate(model.regions):
                 reg[r][0] = float(pred[i, j]) # prediction sets the pivot only
-            self.projDb.rec(k)['time'] = datetime.now()
+            self.projDb.grade(k)['time'] = datetime.now()
         self.markDirty()
         if self.curKey in keys:
-            self.loadRecord(self.projDb, self.curKey)
+            self.loadGrade(self.projDb, self.curKey)
         self.refreshPanes()
         self.drawViz()
-        self.status('model applied to %d project records (unsaved)' % len(keys))
+        self.status('model applied to %d project grades (unsaved)' % len(keys))
 
     def saveModel(self):
         # the model file is the curated train gradeDict, in the same layout as any other
         if self.trainDb.path is None:
             return self.saveModelAs()
-        if not self.trainDb.nRecords():
+        if not self.trainDb.nGrades():
             return self.status('train set is empty, nothing to save')
         self.trainDb.save()
         self.trainPane.refresh()
-        self.status('saved model (%d train records) to %s'
-                    % (self.trainDb.nRecords(), self.trainDb.path))
+        self.status('saved model (%d train grades) to %s'
+                    % (self.trainDb.nGrades(), self.trainDb.path))
 
     def saveModelAs(self):
-        if not self.trainDb.nRecords():
+        if not self.trainDb.nGrades():
             return self.status('train set is empty, nothing to save')
         p = filedialog.asksaveasfilename(title='save model as', defaultextension='.pkl',
                                          initialfile='model.pkl',
@@ -1358,7 +1354,7 @@ class dBadaCGapp(tk.Tk):
             return
         self.trainDb.save(p)
         self.trainPane.refresh()
-        self.status('saved model (%d train records) to %s' % (self.trainDb.nRecords(), p))
+        self.status('saved model (%d train grades) to %s' % (self.trainDb.nGrades(), p))
 
     def loadModel(self):
         p = filedialog.askopenfilename(title='load model',
@@ -1380,7 +1376,7 @@ class dBadaCGapp(tk.Tk):
         self.trainPane.view.db = self.trainDb
         self.clearRenderCaches()
         self.trainPane.refresh()
-        self.status('loaded model (%d train records) from %s' % (self.trainDb.nRecords(), p))
+        self.status('loaded model (%d train grades) from %s' % (self.trainDb.nGrades(), p))
 
     # ---- settings -------------------------------------------------------
 
@@ -1390,14 +1386,14 @@ class dBadaCGapp(tk.Tk):
                                    'recompute %d project histograms at %d bins, handling '
                                    '"%s"?\n\nevery source image is read again. the project '
                                    'file is not updated unless you choose Save Project.'
-                                   % (self.projDb.nRecords(), nBins, mode)):
+                                   % (self.projDb.nGrades(), nBins, mode)):
             return
         ok, missing = self.projDb.rehistogram(nBins, mode, progress=self.loadProgress)
         if ok:
             self.markDirty()
         self.projPane.refresh()
         self.drawViz()
-        msg = 'rehistogrammed %d records at %d bins (unsaved)' % (len(ok), nBins)
+        msg = 'rehistogrammed %d grades at %d bins (unsaved)' % (len(ok), nBins)
         if missing:
             msg += '  (%d skipped, source image not found)' % len(missing)
         self.status(msg)
@@ -1425,12 +1421,12 @@ class dBadaCGapp(tk.Tk):
         self.markClean()
         self.projPane.refresh()
         self.loadPreviews()
-        self.status('opened project %s (%d records)' % (p, self.projDb.nRecords()))
+        self.status('opened project %s (%d grades)' % (p, self.projDb.nGrades()))
 
     def saveProject(self):
         if self.projDb.path is None:
             return self.saveProjectAs()
-        if not self.projDb.nRecords():
+        if not self.projDb.nGrades():
             return self.status('project is empty, nothing to save')
         self.projDb.save()
         self.markClean()
@@ -1479,11 +1475,11 @@ class dBadaCGapp(tk.Tk):
         else:
             i = 0 if d > 0 else len(keys) - 1 # nothing loaded, enter at the near end
         self.projPane.view.selectOnly(keys[i])
-        self.loadRecord(self.projDb, keys[i])
+        self.loadGrade(self.projDb, keys[i])
 
     def saveIm(self):
-        if self.curRecord() is None:
-            return self.status('no project record loaded')
+        if self.curGrade() is None:
+            return self.status('no project grade loaded')
         src = self.projDb.fullPath(self.curKey)
         if not os.path.exists(src):
             return self.status('source image missing: %s' % src)
@@ -1500,7 +1496,7 @@ class dBadaCGapp(tk.Tk):
         self.status('wrote %s' % p)
 
     def saveBatch(self):
-        # writes every selected project record through its own grade
+        # writes every selected project grade through its own grade
         keys = self.projPane.selectedKeys() or self.projPane.view.keys
         if not keys:
             return self.status('nothing to batch save')
@@ -1517,7 +1513,7 @@ class dBadaCGapp(tk.Tk):
                 continue
             self.status('batch %d/%d  %s' % (i + 1, len(keys), self.projDb.name(k)))
             try:
-                lutOut, _ = self.ce.apply(self.projDb.rec(k)) # each record uses its own grade
+                lutOut, _ = self.ce.apply(self.projDb.grade(k)) # each grade uses its own grade
                 fullIm = c.read_image(src)
                 out = os.path.join(d, os.path.splitext(self.projDb.name(k))[0] + '_graded.jpg')
                 c.write_image(np.clip(lutOut.apply(fullIm), 0, 1), out, bit_depth='uint8')
@@ -1527,8 +1523,8 @@ class dBadaCGapp(tk.Tk):
         self.status('batch saved %d of %d images to %s' % (n, len(keys), d))
 
     def saveLUT(self):
-        if self.curRecord() is None:
-            return self.status('no project record loaded')
+        if self.curGrade() is None:
+            return self.status('no project grade loaded')
         p = filedialog.asksaveasfilename(title='save lut', defaultextension='.cube',
                                          initialfile='lut.cube', filetypes=[('cube LUT', '*.cube')])
         if not p:
@@ -1543,7 +1539,7 @@ if __name__ == "__main__":
     # so the demo runs from wherever the repository was cloned to.
     here = os.path.dirname(os.path.abspath(__file__))
 
-    # project root, and the gradeDict pkl the records come from. the pkl sits in the root
+    # project root, and the gradeDict pkl the grades come from. the pkl sits in the root
     # here, but it does not have to.
     projPath = os.path.join(here, 'demoProject')
     projFile = os.path.join(here, 'demoProject', 'demoProject.pkl')

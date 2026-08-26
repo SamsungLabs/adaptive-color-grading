@@ -56,8 +56,8 @@ pip install -r requirements.txt
 python dBadaCG.py
 ```
 
-On startup the window builds first, then records load from `projFile`, then the directory is
-scanned so any image without a record gets one, and finally previews load — with a
+On startup the window builds first, then grades load from `projFile`, then the directory is
+scanned so any image without a grade gets one, and finally previews load — with a
 `loading x of y project images` indicator in the Project pane. Whole-project preview loading
 is deliberate: it costs time once so that stepping between images and applying batch edits
 are instant afterward.
@@ -72,15 +72,15 @@ python adaCG.py
 
 1. **Import.** The Project pane's `import` button adds a directory of images, computing a
    luminance histogram and a thumbnail for each.
-2. **Grade.** Select a record to load it into the editor. Drag on the chroma box to set the
+2. **Grade.** Select a grade to load it into the editor. Drag on the chroma box to set the
    a\*b\* offset for the region chosen in the dropdown; drag on the tonescale ramp to move
    that region's pivot. Set `color offset applies to:` to `batch` to drive the whole Project
    selection at once.
-3. **Curate.** `add to train` copies graded records into the Train pane. Train records are
-   reference data only — selecting one does not load it into the editor, and the train side
-   never touches source images.
-4. **Apply.** `apply model to selected` fits the KNN on the Train pane's *filtered* records
-   and writes predicted pivots onto the *selected* Project records. Only the four pivots
+3. **Curate.** `add to train` copies the selected grades into the Train pane. Train grades
+   are reference data only — selecting one does not load it into the editor, and the train
+   side never touches source images.
+4. **Apply.** `apply model to selected` fits the KNN on the Train pane's *filtered* grades
+   and writes predicted pivots onto the *selected* Project grades. Only the four pivots
    change; a\*b\* offsets and falloffs are left alone.
 5. **Save.** `save project` writes the Project `gradeDict`; `save model` writes the Train
    `gradeDict`.
