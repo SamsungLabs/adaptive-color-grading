@@ -2,6 +2,8 @@
 
 Research tool for adaptive color grading.
 
+![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
+
 The color engine splits an image into four tonescale regions — `darkest`, `dark`, `light`,
 `lightest` — each with a **pivot** (where the region begins, in relative luminance) and a
 **falloff** (how quickly it blends out). Each region carries an independent CIELAB a\*b\*
