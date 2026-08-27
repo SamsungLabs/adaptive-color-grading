@@ -75,9 +75,7 @@ See classes colorEngine and adapt in adaCG.py for the color grading engine and a
    a\*b\* offset for the region chosen in the dropdown; drag on the tonescale ramp to move
    that region's pivot. Set `color offset applies to:` to `batch` to drive the whole Project
    selection at once.
-3. **Curate.** `add to train` copies the selected grades into the Train pane. Train grades
-   are reference data only — selecting one does not load it into the editor, and the train
-   side never touches source images.
+3. **Curate.** `add`, `remove`, `label`, `filter` and visualize training set examples and their grades.
 4. **Apply.** `apply model to selected` fits the KNN on the Train pane's *filtered* grades
    and writes predicted pivots onto the *selected* Project grades. Only the four pivots
    change; a\*b\* offsets and falloffs are left alone.
