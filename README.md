@@ -1,6 +1,4 @@
-# Adaptive Color Grading
-
-Research tool for adaptive color grading.
+# Adaptive Color Grading Research Tool
 
 ![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
 
