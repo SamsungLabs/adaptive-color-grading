@@ -6,12 +6,14 @@ The color engine splits an image into four tonescale regions — `darkest`, `dar
 `lightest` — each with a **pivot** (where the region begins, in relative luminance) and a
 **falloff** (how quickly it blends out). Each region carries an independent CIELAB a\*b\*
 color offset. The four region adjustments are composed into a single 3D LUT and applied to
-the image.
+the image, as in standard color grading modules.
 
-The point of the database side is to learn the *pivots* from the image itself: `adapt` fits
+The tool is novel in that it learns the *pivots* from the image itself: `adapt` fits
 a k-nearest-neighbour regressor mapping a luminance histogram to the four pivot positions,
 so a grade hand-authored on a small curated set can be pushed across a whole project as a
 batch edit.
+
+This software houses these classes in a color grading interface and database manager interface. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
 
 ## The two programs
 
@@ -51,22 +53,19 @@ pip install -r requirements.txt
 ```
 
 ## Run
+For the grading interface with database manager:
 
 ```bash
 python dBadaCG.py
 ```
-
-On startup the window builds first, then grades load from `projFile`, then the directory is
-scanned so any image without a grade gets one, and finally previews load — with a
-`loading x of y project images` indicator in the Project pane. Whole-project preview loading
-is deliberate: it costs time once so that stepping between images and applying batch edits
-are instant afterward.
 
 For the grading interface alone:
 
 ```bash
 python adaCG.py
 ```
+
+See classes colorEngine and adapt in adaCG.py for the color grading engine and adaptation model alone, respectively.
 
 ## Workflow
 
@@ -120,5 +119,9 @@ Under the `Settings` menu:
 - **histogram handling** — `none`, `unit`, `std` (default), `log`, `cdf`.
 - **Rehistogram Project** — recomputes every project histogram at the current settings.
   Needed after a bit depth change, since `adapt` refuses to mix bin counts.
-- **preview size** — in-memory preview resolution. Changing it re-reads the project.
 - **adapt neighbors** — *k* for the KNN. Default 16.
+
+Preview resolution is fixed at one sixth of the screen width, set by `previewDiv` in
+`dBadaCGapp.__init__`. It is not exposed in the menu because changing it forces a full
+re-read of the project; the menu entry is left commented out next to the `Settings` build.
+

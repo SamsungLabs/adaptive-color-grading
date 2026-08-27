@@ -662,7 +662,7 @@ class dBadaCGapp(tk.Tk):
         self.nBins = tk.IntVar(self, NBINS)
         self.histMode = tk.StringVar(self, 'std')
         self.nNeighbors = tk.IntVar(self, 16)
-        self.previewDiv = tk.IntVar(self, 8)
+        self.previewDiv = tk.IntVar(self, 6) # preview image height = screen width / this
         self.thumbScale = 0.05
         self.batchMode = tk.StringVar(self, 'individual')
         self.statusVar = tk.StringVar(self, 'ready')
@@ -753,11 +753,13 @@ class dBadaCGapp(tk.Tk):
         # depth, rehistogram the project, then re-add to train.
         setM.add_command(label='Rehistogram Project', command=self.rehistogramProject)
         setM.add_separator()
-        sizeM = tk.Menu(setM, tearoff=0)
-        for d, lab in ((16, 'small'), (8, 'medium'), (4, 'large'), (2, 'very large')):
-            sizeM.add_radiobutton(label='%s (screen/%d)' % (lab, d), value=d,
-                                  variable=self.previewDiv, command=self.reloadPreviews)
-        setM.add_cascade(label='preview size', menu=sizeM)
+        # preview size is fixed at the previewDiv default above. changing it forces a full
+        # re-read of the project, so it is not offered from the menu. uncomment to restore.
+        # sizeM = tk.Menu(setM, tearoff=0)
+        # for d, lab in ((16, 'small'), (8, 'medium'), (6, 'default'), (4, 'large'), (2, 'very large')):
+        #     sizeM.add_radiobutton(label='%s (screen/%d)' % (lab, d), value=d,
+        #                           variable=self.previewDiv, command=self.reloadPreviews)
+        # setM.add_cascade(label='preview size', menu=sizeM)
         knnM = tk.Menu(setM, tearoff=0)
         for k in (1, 2, 4, 8, 16, 32):
             knnM.add_radiobutton(label='k = %d' % k, value=k, variable=self.nNeighbors)
