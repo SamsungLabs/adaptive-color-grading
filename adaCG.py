@@ -369,10 +369,13 @@ class cgEditor(tk.Frame):
         # shape the editor state the way colorEngine.apply expects it
         return {'set': self.setDict, 'reg': self.regDict}
 
-    def notify(self):
-        # tell the host a grade edit happened
+    def notify(self, field='set'):
+        # tell the host a grade edit happened, and which half of the grade it touched.
+        # 'set' is the a*b* colour offsets, 'reg' the tonescale pivots and falloffs. a host
+        # that wrote both on every edit would push the loaded grade's tonescale onto every
+        # other grade in a batch colour edit.
         if self.onChange is not None:
-            self.onChange(self.setDict, self.regDict)
+            self.onChange(self.setDict, self.regDict, field)
 
     def reset(self):
         # reset controls to initial values
@@ -380,7 +383,7 @@ class cgEditor(tk.Frame):
         self.draw_wheel_marker(self.cntrlsz/2, self.cntrlsz/2) # update wheel marker
         lutOut = self.update_image() # update image
         self.update_gradient(lutOut) # update gradient
-        self.notify()
+        self.notify('set')
 
     # ---- interaction ----------------------------------------------------
 
@@ -400,7 +403,7 @@ class cgEditor(tk.Frame):
         self.draw_wheel_marker(x, y) # move color marker
         lutOut = self.update_image() # update image with color edit and return LUT
         self.update_gradient(lutOut) # update gradient visualization
-        self.notify()
+        self.notify('set')
 
     def draw_wheel_marker(self, x, y):
         radius = 5 # marker size
@@ -429,7 +432,7 @@ class cgEditor(tk.Frame):
         self.regMask = False # turn off region mask visualization
         lutOut = self.update_image()
         self.update_gradient(lutOut)
-        self.notify()
+        self.notify('reg')
 
     # remember regVal for shadows, highlights
     def setReg(self,value):

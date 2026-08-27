@@ -994,26 +994,31 @@ class dBadaCGapp(tk.Tk):
             # train selection deliberately does not drive the editor
             self.status('%d selected in train' % len(keys))
 
-    def onGradeChange(self, setDict, regDict):
+    def onGradeChange(self, setDict, regDict, field='set'):
+        # field is the half of the grade the editor actually changed. only that half is
+        # written, so a colour edit cannot carry the loaded grade's tonescale onto the rest
+        # of the selection.
         if self.suppressEdits or self.curKey is None:
             return
         targets = [self.curKey]
-        if self.batchMode.get() == 'batch':
+        if field == 'set' and self.batchMode.get() == 'batch':
+            # the switch reads "color offset applies to:", so it governs offsets only.
+            # a pivot drag is always individual.
             sel = self.projPane.selectedKeys()
             targets = sel if sel else [self.curKey]
         self.pushUndo(targets)
         for k in targets:
             if not self.projDb.has(k):
                 continue
-            self.projDb.grade(k)['set'] = copy.deepcopy(setDict)
-            self.projDb.grade(k)['reg'] = copy.deepcopy(regDict)
-            self.projDb.grade(k)['time'] = datetime.now()
+            grade = self.projDb.grade(k)
+            grade[field] = copy.deepcopy(setDict if field == 'set' else regDict)
+            grade['time'] = datetime.now()
         self.markDirty()
         # the chroma box fires this on every motion event, so the list redraw and the
         # matplotlib replot are coalesced instead of run per pixel of drag
         self.scheduleRefresh()
         if len(targets) > 1:
-            self.status('batch edit applied to %d grades (unsaved)' % len(targets))
+            self.status('batch color offset applied to %d grades (unsaved)' % len(targets))
 
     def resetGrade(self):
         # adaCGapp's reset: a*b* colour offsets back to zero for every region. the tonescale
