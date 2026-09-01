@@ -32,13 +32,12 @@ Python 3.12. Direct runtime dependencies:
 - `scikit-learn` — `KNeighborsRegressor`, `StandardScaler`
 - `Pillow` — image resizing, thumbnail JPEG encode/decode
 - `matplotlib` — the histogram and 3D LUT panes in `dBadaCG`
-- `scipy` — pulled in by `colour-science` and `scikit-learn`
 - `tkinter` — the UI. Ships with the Python install itself and is not pip-installable. If
   `import tkinter` fails, the interpreter was built without Tk.
 
 ## Install
 
-From the Miniconda prompt:
+From your preferred python environment (e.g., miniconda):
 
 ```bash
 conda create -n acg python=3.12
