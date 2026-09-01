@@ -88,8 +88,7 @@ title bar and confirmed on quit.
 
 ## The `gradeDict`
 
-Every component — `dBadaCG`, `adaCG`, `colorEngine`, `adapt` — communicates through one plain
-dictionary, pickled to disk:
+Every component (`dBadaCG`, `adaCG`, `colorEngine`, `adapt`) communicates through the project dictionary.
 
 ```python
 {
