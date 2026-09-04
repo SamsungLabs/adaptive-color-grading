@@ -615,11 +615,8 @@ class adaCGapp(tk.Tk):
 if __name__ == "__main__":
 
     import os
-    #impath = os.path.normpath("c:/Users/t.canham/Documents/photo-finishing/images/2HDRVD/choiceFramesP3")
-    #impath = os.path.normpath("c:/Users/t.canham/Documents/photo-finishing/images/2HDRVD")
-    #impath = os.path.normpath("c:/Users/t.canham/Documents/photo-finishing/images/hdr4eu/P3")
-    impath = os.path.normpath("c:/Users/t.canham/Documents/photo-finishing/images/2HDRVD/expPrelim/")
+    here = os.path.dirname(os.path.abspath(__file__))
+    impath = os.path.join(here, 'demoProject')
     ftype = ".tif"
-    #resF = os.path.normpath("c:/Users/t.canham/Documents/photo-finishing/results/resExpRawGrader.xlsx")
     app = adaCGapp(impath,ftype)
     app.mainloop()
