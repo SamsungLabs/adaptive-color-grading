@@ -1,11 +1,14 @@
-# Adaptive Color Grading Research Tool
+# Adaptive Color Grading
+## Trevor D. Canham, Abhijith Punnappurath, and Michael S. Brown
 
 ![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
+This is the open source repository for **Adaptive Color Grading** which will be presented at the 34th Color and Imaging Conference.
+The tool consists of the following key classes:
 
-The color engine splits an image into four tonescale regions — `darkest`, `dark`, `light`,
-`lightest` — each with a **pivot** (where the region begins, in relative luminance) and a
-**falloff** (how quickly it blends out). Each region carries an independent CIELAB a\*b\*
-color offset. The four region adjustments are composed into a single 3D LUT and applied to
+`colorEngine` splits an image into four tonescale regions — `darkest`, `dark`, `light`,
+`lightest` — each with a **tonescale region threshold (TRT)** (where the region begins, in relative luminance) and a
+**falloff** (how quickly it blends out). An independent CIELAB a\*b\*
+color offset can be applied to each region. The four region adjustments are composed into a single 3D LUT and applied to
 the image, as in standard color grading modules.
 
 The tool is novel in that it learns the *pivots* from the image itself: `adapt` fits
@@ -13,15 +16,7 @@ a k-nearest-neighbour regressor mapping a luminance histogram to the four pivot 
 so a grade hand-authored on a small curated set can be pushed across a whole project as a
 batch edit.
 
-This software houses these classes in a color grading interface and database manager interface. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
-
-## The two programs
-
-| | |
-|---|---|
-| **`adaCG.py`** | The grading interface. Opens one directory of images and steps through them. The demo prototype tool used in the above-referenced experiments, containing the core image processing routines employed in the release interface.|
-| **`dBadaCG.py`** | Release interface allowing for individual and batch color grading, project and training set curation, analysis of adaptive behavior.|
-
+Users can interact with these classes via the nested color grading interface `adaCG.py` and database manager interface `dBadaCG.py`. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
 
 ## Requirements
 
@@ -121,3 +116,12 @@ Preview resolution is fixed at one sixth of the screen width, set by `previewDiv
 `dBadaCGapp.__init__`. It is not exposed in the menu because changing it forces a full
 re-read of the project; the menu entry is left commented out next to the `Settings` build.
 
+## How to cite
+```
+@inproceedings{acg,
+  title={Adaptive Color Grading},
+  author={Canham, Trevor and Punnappurath, Abhijith and Brown, Michael},
+  booktitle={Color and Imaging Conference},
+  year={2026}
+}
+```
