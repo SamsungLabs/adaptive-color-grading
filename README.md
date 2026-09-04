@@ -11,9 +11,8 @@ The tool consists of the following key classes:
 color offset can be applied to each region. The four region adjustments are composed into a single 3D LUT and applied to
 the image, as in standard color grading modules.
 
-The tool is novel in that it learns the *pivots* from the image itself: `adapt` fits
-a k-nearest-neighbour regressor mapping a luminance histogram to the four pivot positions,
-so a set of color offsets can be batch applied to a whole project while automatically accounting for differences in intensity distributions between scene types.
+The tool is novel in that it can automatically predict *TRTs* using the `adapt` class, fitting the 3D LUT to the intensity distribution of each new input image.
+Via this mechanism, a set of color offsets can be batch applied to a whole project.
 
 Users can interact with these classes via the nested color grading interface `adaCG.py` and database manager interface `dBadaCG.py`. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
 
