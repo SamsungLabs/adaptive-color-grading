@@ -1,5 +1,5 @@
 # Adaptive Color Grading
-## Trevor D. Canham, Abhijith Punnappurath, and Michael S. Brown
+### Trevor D. Canham, Abhijith Punnappurath, and Michael S. Brown
 
 ![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
 This is the open source repository for **Adaptive Color Grading** which will be presented at the 34th Color and Imaging Conference.
