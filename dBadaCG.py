@@ -1,16 +1,25 @@
-# dBadaCG.py - gradeDict database manager for adaCG
-#
-# curates training data for the adapt class, which predicts gradeDict['reg'][<region>][0]
-# (the four tonescale pivots) from an image histogram, so that a grade learned on a small
-# hand-graded set can be applied to a whole project as a batch edit.
-#
-# two databases are held at once, both plain gradeDicts of exactly the layout adaCG writes:
-#   project - one directory root, the working set. this is the grade.pkl adaCG already writes.
-#   train   - the curated set, assembled out of any number of project gradeDicts. the train
-#             window never touches source images, it works from the stored thumb and hist only.
-#
-# nothing on disk is overwritten except by Save Project / Save Project As / Save Model.
-# everything that crosses between dBadaCG, adaCG, colorEngine and adapt is a gradeDict.
+'''
+  Title::
+dBadaCG.py
+  Description::
+Database manager for adaptive color grading interface
+  Method::
+User interface for interacting with gradeDict data structures of current projects and previous ones used for training. Calls adaCG.py color grading interface elements and allows for adaptive batch editing, provides visualizations.
+  Inputs::
+projPath - directory path of compatible images to import ('.tif', '.tiff', '.jpg', '.jpeg', '.png', '.exr', '.dpx')
+projFile - previous project to continue editing ('.pkl' gradeDict data structure)
+modelPath - previous project to use as training data ('.pkl' gradeDict data structure)
+  Interface::
+See readme.md 'workflow' sectio
+  Outputs::
+project files, graded images, LUTs, model files for training
+  Author::
+Trevor D. Canham
+  Correspondance::
+tcanham@yorku.ca
+
+Copyright (c) 2026 Samsung Electronics Co., Ltd.
+'''
 
 import colour as c
 import numpy as np
