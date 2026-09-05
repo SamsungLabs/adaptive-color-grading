@@ -9,8 +9,6 @@ User interface for interacting with gradeDict data structures of current project
 projPath - directory path of compatible images to import ('.tif', '.tiff', '.jpg', '.jpeg', '.png', '.exr', '.dpx')
 projFile - previous project to continue editing ('.pkl' gradeDict data structure)
 modelPath - previous project to use as training data ('.pkl' gradeDict data structure)
-  Interface::
-See readme.md 'workflow' sectio
   Outputs::
 project files, graded images, LUTs, model files for training
   Author::
