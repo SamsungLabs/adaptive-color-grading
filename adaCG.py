@@ -1,4 +1,23 @@
-# raw grader app
+'''
+  Title::
+adaCG.py
+  Description::
+Adaptive color grading interface
+  Method::
+Color grading interface - allows for definition of 'Darkest', 'Dark', 'Light', and 'Lightest' regions via mean RGB thresholds, control of falloff functions, and the application of CIEL*A*B* color offsets to each segmented region.
+  Inputs::
+imPath - directory of images to grade
+fType - image file type
+  Outputs::
+graded images, LUTs, project files (saved automatically to imPath as 'grade.pkl')
+  Author::
+Trevor D. Canham
+  Correspondance::
+tcanham@yorku.ca
+
+Copyright (c) 2026 Samsung Electronics Co., Ltd.
+'''
+
 import colour as c
 import numpy as np
 import tkinter as tk
