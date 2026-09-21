@@ -2,7 +2,7 @@
 ### Trevor D. Canham, Abhijith Punnappurath, and Michael S. Brown
 
 ![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
-This is the open source repository for **Adaptive Color Grading** which will be presented at the 34th Color and Imaging Conference.
+This is the open source repository for [**Adaptive Color Grading**](https://arxiv.org/abs/2609.21169) which will be presented at the 34th Color and Imaging Conference.
 The tool consists of the following key classes:
 
 `colorEngine` splits an image into four tonescale regions — `darkest`, `dark`, `light`,
@@ -15,6 +15,9 @@ The tool is novel in that it can automatically predict *TRTs* using the `adapt` 
 Via this mechanism, a set of color offsets can be batch applied to a whole project.
 
 Users can interact with these classes via the nested color grading interface `adaCG.py` and database manager interface `dBadaCG.py`. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
+
+## Dataset
+The associated dataset of RAW HDR videos will be hosted on the [HDRVS webpage](https://hdrvs.github.io/), along with the processed stills used in the experiments for the paper.
 
 ## Requirements
 
