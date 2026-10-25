@@ -17,7 +17,8 @@ Via this mechanism, a set of color offsets can be batch applied to a whole proje
 Users can interact with these classes via the nested color grading interface `adaCG.py` and database manager interface `dBadaCG.py`. The package also contains an example training dataset from the experiments in the paper, and a number of demo images for users to experiment with.
 
 ## Dataset
-The associated dataset of RAW HDR videos will be hosted on the [HDRVS webpage](https://hdrvs.github.io/), along with the processed stills used in the experiments for the paper.
+The associated dataset of RAW HDR videos will be hosted on the [HDRVS webpage](https://hdrvs.github.io/). 
+The processed stills and annotations used in the experiments for the paper are now available on [Hugging Face](https://huggingface.co/datasets/trevorcanham/hdrvs_adaCGsubset).
 
 ## Requirements
 
