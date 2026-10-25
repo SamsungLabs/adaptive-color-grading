@@ -18,6 +18,7 @@ Users can interact with these classes via the nested color grading interface `ad
 
 ## Dataset
 The associated dataset of RAW HDR videos will be hosted on the [HDRVS webpage](https://hdrvs.github.io/). 
+
 The processed stills and annotations used in the experiments for the paper are now available on [Hugging Face](https://huggingface.co/datasets/trevorcanham/hdrvs_adaCGsubset).
 
 ## Requirements
