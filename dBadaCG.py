@@ -1,23 +1,16 @@
-'''
-  Title::
-dBadaCG.py
-  Description::
-Database manager for adaptive color grading interface
-  Method::
-User interface for interacting with gradeDict data structures of current projects and previous ones used for training. Calls adaCG.py color grading interface elements and allows for adaptive batch editing, provides visualizations.
-  Inputs::
-projPath - directory path of compatible images to import ('.tif', '.tiff', '.jpg', '.jpeg', '.png', '.exr', '.dpx')
-projFile - previous project to continue editing ('.pkl' gradeDict data structure)
-modelPath - previous project to use as training data ('.pkl' gradeDict data structure)
-  Outputs::
-project files, graded images, LUTs, model files for training
-  Author::
-Trevor D. Canham
-  Correspondance::
-tcanham@yorku.ca
-
-Copyright (c) 2026 Samsung Electronics Co., Ltd.
-'''
+# dBadaCG.py - gradeDict database manager for adaCG
+#
+# curates training data for the adapt class, which predicts gradeDict['reg'][<region>][0]
+# (the four tonescale pivots) from an image histogram, so that a grade learned on a small
+# hand-graded set can be applied to a whole project as a batch edit.
+#
+# two databases are held at once, both plain gradeDicts of exactly the layout adaCG writes:
+#   project - one directory root, the working set. this is the grade.pkl adaCG already writes.
+#   train   - the curated set, assembled out of any number of project gradeDicts. the train
+#             window never touches source images, it works from the stored thumb and hist only.
+#
+# nothing on disk is overwritten except by Save Project / Save Project As / Save Model.
+# everything that crosses between dBadaCG, adaCG, colorEngine and adapt is a gradeDict.
 
 import colour as c
 import numpy as np
@@ -654,7 +647,7 @@ class dBadaCGapp(tk.Tk):
     UNDO_DEPTH = 64
     GS_SAMPLES = 32   # the gscale ramp is built at this width, then resized up for display
 
-    def __init__(self, projectPath=None, trainPath=None, ftype='.tif', projectFile=None):
+    def __init__(self, projectPath=None, trainPath=None, projectFile=None):
 
         super().__init__()
         self.title("dBadaCG: adaCG grade database")
@@ -665,7 +658,7 @@ class dBadaCGapp(tk.Tk):
         self.geometry('%dx%d' % (int(self.width * 0.9), int(self.height * 0.9)))
 
         # settings
-        self.ftype = ftype
+        #self.ftype = ftype
         self.nBins = tk.IntVar(self, NBINS)
         self.histMode = tk.StringVar(self, 'std')
         self.nNeighbors = tk.IntVar(self, 16)
@@ -1169,8 +1162,8 @@ class dBadaCGapp(tk.Tk):
             if self.curKey is not None:
                 self.loadGrade(self.projDb, self.curKey)
 
-    def scanTypes(self):
-        return (self.ftype,) if self.ftype else IMTYPES
+    # def scanTypes(self):
+    #     return (self.ftype,) if self.ftype else IMTYPES
 
     # ---- project commands ----------------------------------------------
 
@@ -1192,7 +1185,7 @@ class dBadaCGapp(tk.Tk):
         self.undoStack, self.redoStack = [], []
         self.projPane.setStatus('scanning %s ...' % d)
         self.update_idletasks()
-        res = self.projDb.ingestDirectory(d, self.scanTypes(), self.nBins.get(),
+        res = self.projDb.ingestDirectory(d, IMTYPES, self.nBins.get(),
                                           self.histMode.get(), self.thumbScale,
                                           progress=self.loadProgress,
                                           onImage=self.capturePreview)
@@ -1207,7 +1200,7 @@ class dBadaCGapp(tk.Tk):
             return
         if not self.projDb.nGrades() and not self.projDb.root:
             self.projDb.root = os.path.normpath(d) # the first import defines the root
-        res = self.projDb.ingestDirectory(d, self.scanTypes(), self.nBins.get(),
+        res = self.projDb.ingestDirectory(d, IMTYPES, self.nBins.get(),
                                           self.histMode.get(), self.thumbScale,
                                           progress=self.loadProgress,
                                           onImage=self.capturePreview)
@@ -1558,5 +1551,6 @@ if __name__ == "__main__":
     projPath = os.path.join(here, 'demoProject')
     projFile = os.path.join(here, 'demoProject', 'demoProject.pkl')
     modelPath = os.path.join(here, 'demoProject', 'trainDemo8b.pkl')
-    app = dBadaCGapp(projPath, modelPath, ftype='.tif', projectFile=projFile)
+
+    app = dBadaCGapp(projPath, modelPath, projectFile=projFile)
     app.mainloop()
