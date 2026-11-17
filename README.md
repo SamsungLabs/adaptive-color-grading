@@ -2,7 +2,7 @@
 ### Trevor D. Canham, Abhijith Punnappurath, and Michael S. Brown
 
 ![](https://github.com/SamsungLabs/adaptive-color-grading/blob/main/dbAdaCGUI.png)
-This is the open source repository for [**Adaptive Color Grading**](https://arxiv.org/abs/2609.21169) which will be presented at the 34th Color and Imaging Conference.
+This is the open source repository for [**Adaptive Color Grading**](https://arxiv.org/abs/2609.21169) which was presented at the [**34th Color and Imaging Conference**](https://youtu.be/edz5JYDtzo8).
 The tool consists of the following key classes:
 
 `colorEngine` splits an image into four tonescale regions — `darkest`, `dark`, `light`,
